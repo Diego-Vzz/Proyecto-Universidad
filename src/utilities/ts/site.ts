@@ -1,76 +1,135 @@
 import api from "../../services/s_api";
 
-const httpMethods = {
+// Definición de tipos
+export const HttpMethod = {
     GET: 'GET',
     POST: 'POST',
     PUT: 'PUT',
     DELETE: 'DELETE',
 } as const;
 
-type httpMethod = typeof httpMethods[keyof typeof httpMethods];
+export type HttpMethod = typeof HttpMethod[keyof typeof HttpMethod];
 
-export class dgav {
-    static httpMethod = httpMethods;
-    static dataBase = {
+interface ApiResponse<T = any> {
+    status: number;
+    message: string;
+    data: T;
+}
+
+interface DatabaseState {
+    status: number;
+    message: string;
+    data: Record<string, any>;
+    reset(): void;
+}
+
+// Clase principal
+export class ApiService {
+    private static database: DatabaseState = {
         status: 200,
         message: "",
-        data: {} as Record<string, any>,
+        data: {},
         reset() {
             this.status = 200;
             this.message = "";
             this.data = {};
         },
     };
-    static async apiRequest(
-        endPoint: string,
-        method: httpMethod,
-        body?: Record<string, any>
-    ): Promise<void> {
-        try {
-            const response = await this.handleRequest(method, endPoint, body);
 
-            if (!response || !response.data) {
+    /**
+     * Realiza una petición a la API
+     * @param endpoint - Ruta del endpoint
+     * @param method - Método HTTP
+     * @param body - Cuerpo de la petición (opcional)
+     * @returns Promise con la respuesta de la API
+     */
+    public static async apiRequest<T = any>(
+        endpoint: string,
+        method: HttpMethod,
+        body?: Record<string, any>
+    ): Promise<T | void> {
+        try {
+            const response = await this.handleRequest(method, endpoint, body);
+
+            if (!response?.data) {
                 throw new Error("La respuesta del servidor no contiene datos válidos.");
             }
 
             const { data } = response;
 
-            if (data.message) {
+            if (data.message && data.status !== 200) {
                 throw new Error(data.message);
             }
 
-            return data;
-        } catch (error: any) {
+            return data as T;
+        } catch (error) {
             this.handleError(error);
+            throw error; // Re-lanzamos el error para manejo externo
         }
-    };
-    private static async handleRequest(
-        method: httpMethod,
-        endPoint: string,
-        body?: Record<string, any>
-    ) {
-        switch (method) {
-            case this.httpMethod.GET:
-                return await api.get(endPoint);
-            case this.httpMethod.POST:
-                if (!body) throw new Error('El "body" es obligatorio para POST.');
-                return await api.post(endPoint, body);
-            case this.httpMethod.PUT:
-                if (!body) throw new Error('El "body" es obligatorio para PUT.');
-                return await api.put(endPoint, body);
-            case this.httpMethod.DELETE:
-                return await api.delete(endPoint);
-        }
-    };
-    private static handleError(error: any): void {
-        this.dataBase.reset();
-        this.dataBase.status = 599;
+    }
 
-        this.dataBase.message =
-            error?.message || "Ha ocurrido un error inesperado.";
-    };
+    /**
+     * Maneja la petición HTTP según el método
+     */
+    private static async handleRequest(
+        method: HttpMethod,
+        endpoint: string,
+        body?: Record<string, any>
+    ): Promise<ApiResponse | undefined> {
+        try {
+            switch (method) {
+                case HttpMethod.GET:
+                    return await api.get(endpoint);
+                case HttpMethod.POST:
+                    if (!body) {
+                        throw new Error('El "body" es obligatorio para POST.');
+                    }
+                    return await api.post(endpoint, body);
+                case HttpMethod.PUT:
+                    if (!body) {
+                        throw new Error('El "body" es obligatorio para PUT.');
+                    }
+                    return await api.put(endpoint, body);
+                case HttpMethod.DELETE:
+                    return await api.delete(endpoint);
+                default:
+                    throw new Error(`Método HTTP no soportado: ${method}`);
+            }
+        } catch (error) {
+            this.handleError(error);
+            throw error;
+        }
+    }
+
+    /**
+     * Maneja los errores de la API
+     */
+    private static handleError(error: unknown): void {
+        this.database.reset();
+        this.database.status = 599;
+
+        if (error instanceof Error) {
+            this.database.message = error.message;
+        } else {
+            this.database.message = "Ha ocurrido un error inesperado.";
+        }
+    }
+
+    /**
+     * Obtiene el estado actual de la base de datos
+     */
+    public static getDatabaseState(): Readonly<DatabaseState> {
+        return { ...this.database };
+    }
 }
 
-export const IsNullOrEmpty = (value: any): boolean => {
-    return value == null || value == undefined || value == '';
+/**
+ * Verifica si un valor es nulo, indefinido o vacío
+ */
+export const isNullOrEmpty = (value: unknown): boolean => {
+    if (value === null || value === undefined) return true;
+    if (typeof value === 'string') return value.trim() === '';
+    if (Array.isArray(value)) return value.length === 0;
+    if (typeof value === 'object') return Object.keys(value).length === 0;
+    return false;
 };
