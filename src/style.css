@@ -25,9 +25,9 @@ body {
   width: 100%;
   min-width: 320px;
   min-height: 100vh;
-  color: #232323;
-  --color: #e1e1e1;
-  background-color: #f3f3f3;
+  color: #fcf7f8;
+  --color: rgba(114, 114, 114, 0.3);
+  background-color: #191a1a;
   background-image: linear-gradient(
       0deg,
       transparent 24%,

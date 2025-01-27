@@ -1,135 +1,197 @@
+import router from "../../router";
 import api from "../../services/s_api";
+import Cookies from "js-cookie";
+import { Notyf } from "notyf";
+import "notyf/notyf.min.css";
 
-// Definición de tipos
-export const HttpMethod = {
-    GET: 'GET',
-    POST: 'POST',
-    PUT: 'PUT',
-    DELETE: 'DELETE',
-} as const;
-
-export type HttpMethod = typeof HttpMethod[keyof typeof HttpMethod];
-
-interface ApiResponse<T = any> {
-    status: number;
-    message: string;
-    data: T;
+interface NotyfOptions {
+  type: "success" | "error" | "warning" | "info";
+  message: string;
 }
 
 interface DatabaseState {
-    status: number;
-    message: string;
-    data: Record<string, any>;
-    reset(): void;
+  status: number;
+  message: string;
+  data: Record<string, any>;
+  isLoading: boolean;
+  reset(): void;
 }
+
+const httpMethods = {
+  GET: "GET",
+  POST: "POST",
+  PUT: "PUT",
+  DELETE: "DELETE",
+} as const;
+
+type httpMethod = (typeof httpMethods)[keyof typeof httpMethods];
+
+const REQUEST_TIMEOUT = 30000;
 
 // Clase principal
-export class ApiService {
-    private static database: DatabaseState = {
-        status: 200,
-        message: "",
-        data: {},
-        reset() {
-            this.status = 200;
-            this.message = "";
-            this.data = {};
-        },
-    };
+export class dgav {
+  static httpMethod = httpMethods;
+  static dataBase: DatabaseState = {
+    status: 200,
+    message: "",
+    data: {},
+    isLoading: false,
+    reset() {
+      this.status = 200;
+      this.message = "";
+      this.data = {};
+      this.isLoading = false;
+    },
+  };
 
-    /**
-     * Realiza una petición a la API
-     * @param endpoint - Ruta del endpoint
-     * @param method - Método HTTP
-     * @param body - Cuerpo de la petición (opcional)
-     * @returns Promise con la respuesta de la API
-     */
-    public static async apiRequest<T = any>(
-        endpoint: string,
-        method: HttpMethod,
-        body?: Record<string, any>
-    ): Promise<T | void> {
-        try {
-            const response = await this.handleRequest(method, endpoint, body);
+  public static async apiRequest(
+    endPoint: string,
+    method: httpMethod,
+    body?: Record<string, any>
+  ): Promise<any> {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT);
 
-            if (!response?.data) {
-                throw new Error("La respuesta del servidor no contiene datos válidos.");
-            }
+    try {
+      this.dataBase.isLoading = true;
 
-            const { data } = response;
+      const response = await this.handleRequest(
+        method,
+        endPoint,
+        body,
+        controller.signal
+      );
 
-            if (data.message && data.status !== 200) {
-                throw new Error(data.message);
-            }
+      if (!response) {
+        throw new Error("Invalid server response");
+      }
 
-            return data as T;
-        } catch (error) {
-            this.handleError(error);
-            throw error; // Re-lanzamos el error para manejo externo
+      const { variables, status } = response;
+      this.dataBase.status = status;
+
+      if (response.message) {
+        this.handleError(response.message);
+        return;
+      }
+
+      return variables;
+    } catch (error: any) {
+      if (error.name === "AbortError") {
+        this.handleError("Request timeout - please try again");
+      } else if (error.response) {
+        const message = error.response.data?.message || "Server error occurred";
+        this.handleError(message, error.response.status);
+      } else if (error.request) {
+        this.handleError("No response from server - check your connection");
+      } else {
+        this.handleError(error.message || "An unexpected error occurred");
+      }
+    } finally {
+      clearTimeout(timeoutId);
+      this.dataBase.isLoading = false;
+    }
+  }
+
+  private static async handleRequest(
+    method: httpMethod,
+    endPoint: string,
+    body?: Record<string, any>,
+    signal?: AbortSignal
+  ): Promise<any> {
+    const config = { signal };
+
+    switch (method) {
+      case this.httpMethod.GET:
+        return (await api.get(endPoint, config)).data;
+      case this.httpMethod.POST:
+        if (!body) {
+          throw new Error("Body is required for POST requests");
         }
-    }
-
-    /**
-     * Maneja la petición HTTP según el método
-     */
-    private static async handleRequest(
-        method: HttpMethod,
-        endpoint: string,
-        body?: Record<string, any>
-    ): Promise<ApiResponse | undefined> {
-        try {
-            switch (method) {
-                case HttpMethod.GET:
-                    return await api.get(endpoint);
-                case HttpMethod.POST:
-                    if (!body) {
-                        throw new Error('El "body" es obligatorio para POST.');
-                    }
-                    return await api.post(endpoint, body);
-                case HttpMethod.PUT:
-                    if (!body) {
-                        throw new Error('El "body" es obligatorio para PUT.');
-                    }
-                    return await api.put(endpoint, body);
-                case HttpMethod.DELETE:
-                    return await api.delete(endpoint);
-                default:
-                    throw new Error(`Método HTTP no soportado: ${method}`);
-            }
-        } catch (error) {
-            this.handleError(error);
-            throw error;
+        return (await api.post(endPoint, body, config)).data;
+      case this.httpMethod.PUT:
+        if (!body) {
+          throw new Error("Body is required for PUT requests");
         }
+        return (await api.put(endPoint, body, config)).data;
+      case this.httpMethod.DELETE:
+        return (await api.delete(endPoint, config)).data;
+      default:
+        throw new Error(`Unsupported HTTP method: ${method}`);
     }
+  }
 
-    /**
-     * Maneja los errores de la API
-     */
-    private static handleError(error: unknown): void {
-        this.database.reset();
-        this.database.status = 599;
-
-        if (error instanceof Error) {
-            this.database.message = error.message;
-        } else {
-            this.database.message = "Ha ocurrido un error inesperado.";
-        }
-    }
-
-    /**
-     * Obtiene el estado actual de la base de datos
-     */
-    public static getDatabaseState(): Readonly<DatabaseState> {
-        return { ...this.database };
-    }
+  private static handleError(message: string, status: number = 500): void {
+    this.dataBase.reset();
+    this.dataBase.status = status;
+    this.dataBase.message = message;
+  }
 }
 
-/**
- * Verifica si un valor es nulo, indefinido o vacío
- */
-export const isNullOrEmpty = (value: unknown): boolean => {
+export class site {
+  public static isNullOrEmpty(value: unknown): boolean {
     if (value === null || value === undefined) return true;
-    if (typeof value === 'string') return value.trim() === '';
+    if (typeof value === "string") return value.trim() === "";
     if (Array.isArray(value)) return value.length === 0;
-    if (typeof value === 'object') return Object.keys(value).length === 0;
+    if (typeof value === "object") return Object.keys(value).length === 0;
     return false;
-};
+  }
+
+  public static RedirectPage(
+    url: string,
+    parametros: Record<string, any> = {},
+    functionOn?: () => void
+  ): void {
+    const settingsRouter: Record<string, any> = {
+      name: url,
+    };
+
+    if (
+      parametros &&
+      (Array.isArray(parametros)
+        ? parametros.length > 0
+        : Object.keys(parametros).length > 0)
+    ) {
+      settingsRouter["params"] = parametros;
+    }
+    router.push(settingsRouter);
+
+    if (functionOn) {
+      functionOn();
+    }
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
+
+  public static setCookies(cookies: Record<string, string>): void {
+    Object.entries(cookies).forEach(([key, value]) => {
+      Cookies.set(key, value, {
+        path: "/",
+        sameSite: "Strict",
+        expires: 7,
+      });
+    });
+  }
+
+  public static getCookies(key: string) {
+    return Cookies.get(key);
+  }
+
+  public static Alert(opciones: NotyfOptions) {
+    const notyf = new Notyf({
+      duration: 5000,
+      position: {
+        x: "right",
+        y: "top",
+      },
+    });
+
+    switch (opciones.type) {
+      case "success":
+        notyf.success(opciones.message);
+        break;
+      case "error":
+        notyf.error(opciones.message);
+        break;
+    }
+  }
+}

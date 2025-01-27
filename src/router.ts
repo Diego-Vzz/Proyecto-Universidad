@@ -3,25 +3,31 @@ import {
   createWebHistory,
   type RouteRecordRaw,
 } from "vue-router";
-import Login from "./views/Login.vue";
-import Register from "./views/Register.vue";
+
+import Register from "./views/Register/Register.vue";
 import Presentacion from "./views/Presentacion.vue";
+import Login from "./views/Login/Login.vue";
+import Home from "./views/Home/Home.vue";
 
 const routes: Array<RouteRecordRaw> = [
   {
     path: "/",
-    name: "presentacion",
-    component: Presentacion,
+    redirect: "/v1/auth/login",
+  },
+  {
+    path: "/v1/home",
+    name: "home",
+    component: Home,
     meta: { layout: "Main" },
   },
   {
-    path: "/auth/login",
+    path: "/v1/auth/login",
     name: "login",
     component: Login,
     meta: { layout: "Auth" },
   },
   {
-    path: "/auth/register",
+    path: "/v1/auth/register",
     name: "register",
     component: Register,
     meta: { layout: "Auth" },
