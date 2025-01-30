@@ -9,6 +9,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@midudev/tailwind-animations": "^0.1.0",
     "axios": "^1.7.9",
     "js-cookie": "^3.0.5",
     "notyf": "^3.10.0",

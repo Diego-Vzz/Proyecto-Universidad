@@ -11,7 +11,7 @@ import { registerModulo, FromRegister, FromErrosRegister } from './register';
 <template>
     <div class="flex items-center justify-center p-5 min-h-screen">
         <div
-            class="flex flex-row w-full max-w-screen-xl shadow-inner bg-[#26262C] min-h-[557px] relative py-16 rounded-[5px] opacity-95">
+            class="flex flex-row w-full max-w-screen-xl shadow-inner min-h-[557px] relative py-16 rounded-[5px] opacity-95">
             <div class="flex py-4 px-5 absolute left-0 top-0">
                 <button type="button" @click="site.RedirectPage('login')">
                     <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"

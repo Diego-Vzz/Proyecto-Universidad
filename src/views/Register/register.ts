@@ -162,6 +162,10 @@ export class registerModulo {
         usuario: JSON.stringify(response.usuario),
         token: response.token,
       });
+      site.Alert({
+        type: "success",
+        message: "Inicio de sesión exitoso",
+      });
       site.RedirectPage("home");
     }
   }

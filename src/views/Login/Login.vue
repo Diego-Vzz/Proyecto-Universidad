@@ -11,7 +11,7 @@ import { loginModulo, FromLogin, FromErrosLogin } from './login';
 <template>
     <div class="flex items-center justify-center p-5 min-h-screen">
         <div
-            class="flex flex-row w-full max-w-screen-lg shadow-inner bg-[#26262C] h-[557px] min-h-[557px] rounded-[5px] opacity-95">
+            class="flex flex-row w-full max-w-screen-lg shadow-inner h-[557px] min-h-[557px] rounded-[5px] opacity-95">
             <div class="flex flex-col items-center text-center relative justify-center w-full gap-5 py-2 px-5">
                 <div class="flex py-4 px-5 absolute left-0 top-0">
                     <button type="button" @click="site.RedirectPage('home')">

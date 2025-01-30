@@ -1,4 +1,4 @@
-import { onMounted, ref } from "vue";
+import { ref } from "vue";
 import { dgav, site } from "../../utilities/ts/site";
 
 interface FromLogin {
@@ -98,6 +98,10 @@ export class loginModulo {
       site.setCookies({
         usuario: JSON.stringify(response.usuario),
         token: response.token,
+      });
+      site.Alert({
+        type: "success",
+        message: "Inicio de sesión exitoso",
       });
       site.RedirectPage("home");
     }
